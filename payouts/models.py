@@ -49,5 +49,36 @@ class Payout(models.Model):
 
     def __str__(self):
         return f"Payout {self.id} | {self.amount_paise}p | {self.status}"
+    
+
+class IdempotencyKey(models.Model):
+    key = models.UUIDField()
+    merchant = models.ForeignKey(
+        "merchants.Merchant",
+        on_delete=models.PROTECT,
+        related_name="idempotency_keys",
+    )
+    response_status = models.IntegerField()
+    response_body = models.JSONField()
+    payout = models.ForeignKey(
+        Payout,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="idempotency_keys",
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key", "merchant"],
+                name="unique_key_per_merchant",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.key} | {self.merchant}"
 
 
