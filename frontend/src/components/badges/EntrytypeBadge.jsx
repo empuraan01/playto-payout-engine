@@ -1,26 +1,21 @@
-import axios from "axios";
+const colors = {
+  credit: "text-emerald-400",
+  debit_hold: "text-amber-400",
+  debit_confirm: "text-red-400",
+  debit_release: "text-blue-400",
+};
 
-const api = axios.create({
-  baseURL: "/api/v1",
-});
+const labels = {
+  credit: "Credit",
+  debit_hold: "Hold",
+  debit_confirm: "Confirmed",
+  debit_release: "Released",
+};
 
-export function fetchMerchants() {
-  return api.get("/merchants/");
+export default function EntryTypeBadge({ type }) {
+  return (
+    <span className={`text-xs font-semibold tracking-wide uppercase ${colors[type] || ""}`}>
+      {labels[type] || type}
+    </span>
+  );
 }
-
-export function fetchBalance(merchantId) {
-  return api.get(`/merchants/${merchantId}/balance/`);
-}
-
-export function fetchLedger(merchantId) {
-  return api.get(`/merchants/${merchantId}/ledger/`);
-}
-
-export function fetchPayouts(merchantId) {
-  return api.get(`/payouts/${merchantId}/`);
-}
-
-//todo : Create Payout Request
-
-
-export default api;
