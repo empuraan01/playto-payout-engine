@@ -1,3 +1,6 @@
 from django.urls import path
+from . import views
 
-urlpatterns = []
+urlpatterns = [
+    path("", views.merchant_list, name="merchant-list")
+]
