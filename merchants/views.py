@@ -14,5 +14,13 @@ def merchant_list(request):
     serializer = MerchantSerializer(merchants, many=True)
     return Response(serializer.data)
 
+@api_view(["GET"])
+def merchant_balance(request, merchant_id):
+    try:
+        Merchant.objects.get(id=merchant_id)
+    except Merchant.DoesNotExist:
+        return Response({"error": "Merchant not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    balance = LedgerEntry.calculateBalance(merchant_id)
+    return Response(balance)
 
