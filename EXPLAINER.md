@@ -37,6 +37,83 @@ So basically I had 2 options to design the ledger. Option 1 was to have 2 types 
 
 The main reason I chose Option 2 is because traditionally in a ledger, each entry is unique, can't be tampered, and works on an append-only basis. Going with Option 1 meant I had to find the rows first which had debit, and then update its status. 2 drawbacks I saw in this were that you had to "update" the row, and this would mean 2 operations (a filter and an update), which I felt might be slower in, let's say, a table with 1 million ledger entries. This problem would kind of mutate when I had to tackle the balance calculation as well.
 
+## 2. The Lock
+
+```python
+with transaction.atomic():
+    merchant = Merchant.objects.select_for_update().get(id=merchant_id)
+    
+    balance = LedgerEntry.calculateBalance(merchant_id)
+    available = balance["available_balance"]
+
+    if amount_paise > available:
+        # reject
+    
+    payout = Payout.objects.create(...)
+    LedgerEntry.objects.create(entry_type="debit_hold", ...)
+```
+
+`select_for_update()` tells PostgreSQL to take a row-level lock on the merchant row. Any other transaction that tries to `select_for_update()` on the same merchant blocks until the first one commits or rolls back.
+
+So if two ₹60 payout requests hit simultaneously on a ₹100 balance: Request A locks the merchant row, computes balance as ₹100, passes the check, inserts the debit_hold, and commits. Request B was blocked on the lock the entire time. Once A commits, B gets the lock, computes balance as ₹40 (A's hold is now visible), fails the ₹60 check, and returns insufficient balance. Exactly one succeeds.
+
+The lock has to be on the merchant row, not on individual ledger entries, because the balance is derived from the sum of all entries. Locking individual rows wouldn't prevent a new row from being inserted by a concurrent transaction.
+
+## 3. The Idempotency
+
+The system knows it has seen a key before via a database lookup:
+
+```python
+existing_key = IdempotencyKey.objects.filter(
+    key=idempotency_key,
+    merchant_id=merchant_id,
+    created_at__gte=timezone.now() - timedelta(hours=24),
+).first()
+
+if existing_key:
+    return Response(existing_key.response_body, status=existing_key.response_status)
+```
+
+Keys are scoped per merchant via a `UniqueConstraint` on `(key, merchant)`. The same UUID can be used by different merchants without collision. Keys older than 24 hours are ignored by the `created_at__gte` filter.
+
+If the first request is still in flight when the second arrives, neither has saved the key yet, so the filter returns nothing for both. Both proceed into the transaction. But when they both try to `IdempotencyKey.objects.create(...)`, the `UniqueConstraint` kicks in — one insert succeeds, the other raises an `IntegrityError`. The except block catches it, re-fetches the now-saved key, and returns the cached response. No duplicate payout is created.
+
+```python
+except IntegrityError:
+    existing_key = IdempotencyKey.objects.filter(
+        key=idempotency_key,
+        merchant_id=merchant_id,
+    ).first()
+
+    if existing_key:
+        return Response(existing_key.response_body, status=existing_key.response_status)
+```
+
+## 4. The State Machine
+
+Illegal transitions are blocked in the `transition_to` method on the Payout model:
+
+```python
+VALID_TRANSITIONS = {
+    Status.PENDING: [Status.PROCESSING],
+    Status.PROCESSING: [Status.COMPLETED, Status.FAILED],
+    Status.COMPLETED: [],
+    Status.FAILED: [],
+}
+
+def transition_to(self, new_status, reason=""):
+    if new_status not in self.VALID_TRANSITIONS[self.status]:
+        raise ValueError(
+            f"Invalid transition: {self.status} → {new_status}"
+        )
+```
+
+`COMPLETED` and `FAILED` map to empty lists — no state can follow them. If any code tries `payout.transition_to(Status.COMPLETED)` on a payout that's already `FAILED`, it hits the `raise ValueError`. Same for `completed → pending`, `failed → processing`, or any backwards transition.
+
+Every state change in the entire system goes through this method — the payout view, `process_payout` task, and `retry_stuck_payouts` task all call `transition_to`. There's no direct `payout.status = ...` anywhere, so the check can't be bypassed.
+
+The audit log is also created inside `transition_to`, so every transition is recorded with a timestamp, old status, new status, and reason — giving full traceability of the payout lifecycle.
+
 
 ## 5. The AI Audit
  
