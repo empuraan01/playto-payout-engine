@@ -104,3 +104,47 @@ When(
 ```
  
 Wrapping `-1` in `Value()` keeps the entire expression within Django's ORM expression tree, so PostgreSQL gets a clean, predictable query every time.
+
+### Catch 3: Unnecessary deserialization before idempotency short-circuit
+
+**The bug:** AI extracted all request fields before checking if the idempotency key already existed.
+
+**What AI gave me:**
+```python
+merchant_id = serializer.validated_data["merchant_id"]
+amount_paise = serializer.validated_data["amount_paise"]
+bank_account_id = serializer.validated_data["bank_account_id"]
+
+# --- Step 2: Check idempotency key ---
+existing_key = IdempotencyKey.objects.filter(
+    key=idempotency_key,
+    merchant_id=merchant_id,
+    created_at__gte=timezone.now() - timedelta(hours=24),
+).first()
+
+if existing_key:
+    return Response(existing_key.response_body, status=existing_key.response_status)
+```
+
+**What I caught:** If the idempotency key already exists, we return the cached response immediately. We only need `merchant_id` for the lookup since keys are scoped per merchant. Extracting `amount_paise` and `bank_account_id` before the check is wasted work that gets thrown away on every duplicate request.
+
+**What I replaced it with:**
+```python
+merchant_id = serializer.validated_data["merchant_id"]
+
+# --- Step 2: Check idempotency key ---
+existing_key = IdempotencyKey.objects.filter(
+    key=idempotency_key,
+    merchant_id=merchant_id,
+    created_at__gte=timezone.now() - timedelta(hours=24),
+).first()
+
+if existing_key:
+    return Response(existing_key.response_body, status=existing_key.response_status)
+
+# Only extract these after idempotency check passes
+amount_paise = serializer.validated_data["amount_paise"]
+bank_account_id = serializer.validated_data["bank_account_id"]
+```
+
+Not a correctness bug, but in a payment system's hot path where retries are common, every unnecessary operation before the short-circuit adds up.
