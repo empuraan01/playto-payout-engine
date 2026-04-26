@@ -4,6 +4,7 @@ import Header from "./components/Header";
 import BalanceCards from "./components/BalanceCards";
 import LedgerTable from "./components/LedgerTable";
 import PayoutTable from "./components/PayoutTable";
+import PayoutForm from "./components/PayoutForm";
 
 export default function App() {
   const [merchants, setMerchants] = useState([]);
@@ -62,7 +63,7 @@ export default function App() {
       />
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-8">
         <BalanceCards balance={balance} />
-        {/* PayoutForm will go here */}
+        <PayoutForm merchant={selectedMerchant} onSuccess={() => refreshData(selectedMerchant.id)} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <LedgerTable ledger={ledger} />
           <PayoutTable payouts={payouts} />

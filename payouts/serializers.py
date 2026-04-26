@@ -7,6 +7,13 @@ class PayoutSerializer(serializers.ModelSerializer):
         model = Payout
         fields = ["id", "merchant", "bank_account", "amount_paise", "status", "attempts", "created_at", "updated_at"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["id"] = str(data["id"])
+        data["merchant"] = str(data["merchant"])
+        data["bank_account"] = str(data["bank_account"])
+        return data
+
 
 class PayoutRequestSerializer(serializers.Serializer):
     merchant_id = serializers.UUIDField()
