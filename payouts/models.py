@@ -54,6 +54,8 @@ class Payout(models.Model):
         to_status=new_status,
         reason=reason,
     )
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"Payout {self.id} | {self.amount_paise}p | {self.status}"
