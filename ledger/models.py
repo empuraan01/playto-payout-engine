@@ -28,6 +28,9 @@ class LedgerEntry(models.Model):
     description = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-created_at"]
+
     @staticmethod
     def calculateBalance(merchant_id):
         result = LedgerEntry.objects.filter(
