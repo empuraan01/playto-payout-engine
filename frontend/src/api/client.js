@@ -20,7 +20,19 @@ export function fetchPayouts(merchantId) {
   return api.get(`/payouts/${merchantId}/`);
 }
 
-//todo : Create Payout Request
+export function createPayout(merchantId, amountPaise, bankAccountId, idempotencyKey) {
+  return api.post(
+    "/payouts/",
+    {
+      merchant_id: merchantId,
+      amount_paise: amountPaise,
+      bank_account_id: bankAccountId,
+    },
+    {
+      headers: { "Idempotency-Key": idempotencyKey },
+    }
+  );
+}
 
 
 export default api;
