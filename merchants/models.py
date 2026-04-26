@@ -16,7 +16,7 @@ class Merchant(models.Model):
 
 class BankAccount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    merchant = models.ForeignKey(Merchant, on_delete=models.CASCADE, related_name="bank_accounts")
+    merchant = models.ForeignKey(Merchant, on_delete=models.PROTECT, related_name="bank_accounts")
     account_holder_name = models.CharField(max_length=255)
     account_number = models.CharField(max_length=20)
     ifsc_code = models.CharField(max_length=11)
