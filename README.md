@@ -151,3 +151,13 @@ playto-payout/
 ├── EXPLAINER.md        # Architecture decisions and AI audit
 └── README.md
 ```
+
+## Deployment Notes
+
+The live deployment uses `CELERY_TASK_ALWAYS_EAGER=true`, which executes 
+Celery tasks synchronously within the request cycle. This avoids the need 
+for a separate Redis instance and Celery worker on the free tier. Payouts 
+process immediately instead of going through a queue.
+
+For local development, the full async Celery setup with Redis is used — 
+see the setup instructions above.
