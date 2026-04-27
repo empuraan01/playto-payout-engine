@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import dj_database_url
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,7 +15,6 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() == "true"
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
@@ -31,19 +31,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "playto"),
-        "USER": os.environ.get("DB_USER", "postgres"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
-    }
+    "default": dj_database_url.config(
+        default=f"postgresql://{os.environ.get('DB_USER', 'postgres')}:{os.environ.get('DB_PASSWORD', 'password')}@{os.environ.get('DB_HOST', 'localhost')}:{os.environ.get('DB_PORT', '5432')}/{os.environ.get('DB_NAME', 'playto')}"
+    )
 }
 
 REST_FRAMEWORK = {
@@ -75,6 +71,8 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "false").lower() == "true"
+
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
  
@@ -85,6 +83,11 @@ USE_TZ = True
  
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
  
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

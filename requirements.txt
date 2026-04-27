@@ -4,3 +4,6 @@ psycopg2-binary>=2.9,<2.10
 celery>=5.4,<5.5
 redis>=5.0,<5.1
 django-cors-headers>=4.4,<4.5
+gunicorn>=22.0,<23.0
+whitenoise>=6.7,<6.8
+dj-database-url>=2.2,<2.3
